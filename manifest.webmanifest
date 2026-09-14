@@ -1,7 +1,7 @@
 {
-  "name": "Rummy Scorekeeper",
-  "short_name": "Rummy Score",
-  "description": "A mobile-first Rummy scorekeeper with dealer rotation, editable rounds and completed-game history.",
+  "name": "ScoreKeeper",
+  "short_name": "ScoreKeeper",
+  "description": "A mobile-first card game scorekeeper with dealer rotation, editable rounds, player statistics and completed-game history.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

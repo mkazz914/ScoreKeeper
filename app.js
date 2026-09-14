@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'rummy-score-pwa-v1';
 const HISTORY_KEY = 'rummy-score-history-v1';
 const COLORS = ['red','blue','green','yellow','purple','orange'];
-const AVATARS = ['🐱','🤖','🐻','🐶','🦊','🐼','🐸','🦁'];
+const AVATARS = ['🐱','🤖','🐻','🐶','🦊','🐼','🐸','🦁','🐯','🐨','🐰','🐵','🦉','🐧','🦄','👽','😎','🤠','👑','🃏'];
 
 const uid = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
@@ -28,6 +28,7 @@ const defaultState = () => ({
   archivedGameId: null,
   editingRoundIndex: null,
   historyOpenId: null,
+  avatarPickerIndex: null,
   toast: ''
 });
 
@@ -135,8 +136,15 @@ function header(sub=''){
   return `<header class="topbar"><div class="brand"><h1>${esc(state.gameName||'Rummy')}</h1><p>${sub}</p></div><button class="icon-btn" data-action="options" aria-label="Options">•••</button></header>`;
 }
 
+function renderAvatarPicker(){
+  const i = state.avatarPickerIndex;
+  if(i===null || i===undefined || !state.players[i]) return '';
+  const player = state.players[i];
+  return `<div class="avatar-picker" role="group" aria-label="Choose avatar for ${esc(player.name)}"><div class="avatar-picker-head"><strong>Choose ${esc(player.name)}'s avatar</strong><button type="button" class="avatar-picker-close" data-action="close-avatar-picker" aria-label="Close avatar picker">×</button></div><div class="avatar-grid">${AVATARS.map(a=>`<button type="button" class="avatar-choice ${a===player.avatar?'selected':''}" data-avatar-choice="${a}" aria-label="Use ${a} avatar">${a}</button>`).join('')}</div></div>`;
+}
+
 function renderSetup(){
-  app.innerHTML = `${toast()}<header class="topbar"><div class="brand"><h1>Game Setup</h1><p>Configure the game, players and starting dealer</p></div></header>
+  app.innerHTML = `${toast()}<header class="topbar"><div class="brand"><h1>ScoreKeeper</h1><p>Game Setup · Configure players and rules</p></div></header>
   <section class="panel">
     <div class="field"><label for="gameName">Game Name</label><input id="gameName" value="${esc(state.gameName || 'Rummy')}" placeholder="Rummy" maxlength="30" autocomplete="off"><p class="field-hint">This name appears at the top of the scoreboard and is saved with completed-game history.</p></div>
     <div class="field"><label>Winning type</label><div class="segmented"><button data-win="low" class="${state.winMode==='low'?'active':''}">Lowest Score</button><button data-win="high" class="${state.winMode==='high'?'active':''}">Highest Score</button></div></div>
@@ -144,7 +152,8 @@ function renderSetup(){
     ${state.endMode==='score'?`<div class="field"><label>Score limit</label><input id="scoreLimit" type="number" min="1" max="99999" inputmode="numeric" value="${state.scoreLimit}"></div>`:''}
     ${state.endMode==='rounds'?`<div class="field"><label>Number of rounds</label><input id="fixedRounds" type="number" min="1" max="100" inputmode="numeric" value="${state.fixedRounds}"></div>`:''}
   </section>
-  <section class="panel"><h2>Players</h2><div class="player-setup">${state.players.map((p,i)=>`<div class="player-setup-row"><div class="mini-avatar">${p.avatar}</div><input data-player-name="${i}" value="${esc(p.name)}" maxlength="24"><button class="remove-btn" data-remove="${i}" aria-label="Remove ${esc(p.name)}">×</button></div>`).join('')}</div>
+  <section class="panel"><h2>Players</h2><p class="player-help">Tap an avatar to change it.</p><div class="player-setup">${state.players.map((p,i)=>`<div class="player-setup-row"><button type="button" class="mini-avatar ${state.avatarPickerIndex===i?'active':''}" data-avatar-player="${i}" aria-label="Choose avatar for ${esc(p.name)}">${p.avatar}</button><input data-player-name="${i}" value="${esc(p.name)}" maxlength="24"><button class="remove-btn" data-remove="${i}" aria-label="Remove ${esc(p.name)}">×</button></div>`).join('')}</div>
+    ${renderAvatarPicker()}
     <div class="divider"></div><div class="add-row"><input id="newPlayerName" placeholder="New player"><button class="secondary-btn" data-action="add-player">Add</button></div>
   </section>
   <section class="panel"><div class="field"><label>Starting dealer</label><select id="dealerSelect">${state.players.map((p,i)=>`<option value="${i}" ${i===state.startingDealerIndex?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div></section>
@@ -157,7 +166,7 @@ function renderScore(){
   app.innerHTML = `${toast()}${header(state.endMode==='score'?`First to ${state.scoreLimit}`:state.endMode==='rounds'?`${state.fixedRounds} rounds`:'Manual finish')}
   <section class="summary"><div class="summary-item"><span class="summary-label">Round</span><span class="summary-value">${roundNumber()}</span></div><div class="summary-item"><span class="summary-label">Dealer</span><span class="summary-value" style="color:#54baff">${esc(currentDealerName())}</span></div><div class="summary-item"><span class="summary-label">Leader</span><span class="summary-value">${leaders.length?esc(state.players[leaders[0]].name):'—'}</span></div></section>
   <section class="player-list">${state.players.map((p,i)=>`<article class="player-card ${p.color}"><div class="avatar">${p.avatar}</div><div><h2 class="player-name">${esc(p.name)}</h2><div class="meta-row">${i===state.dealerIndex?'<span class="badge dealer">♛ DEALER</span>':''}${leaders.includes(i)?'<span class="badge leader">🏆 LEADER</span>':''}</div><div class="total-label">Total</div><div class="total">${t[i]}</div></div><div class="score-box"><label for="score-${i}">Round ${roundNumber()}</label><input id="score-${i}" class="score-input" data-score="${i}" type="number" min="0" max="9999" inputmode="numeric" pattern="[0-9]*" value="${state.currentScores[i]??''}" placeholder="0"></div></article>`).join('')}</section>
-  <button class="primary-btn" data-action="save-round">Save Round</button>${nav()}`;
+  <button class="primary-btn save-round-btn" data-action="save-round">Save Round</button>${nav()}`;
   bindCommon(); bindScore();
 }
 
@@ -311,10 +320,13 @@ function bindSetup(){
   const limit=app.querySelector('#scoreLimit'); if(limit) limit.addEventListener('input',e=>{state.scoreLimit=Math.max(1,Number(e.target.value)||1);persist();});
   const fixed=app.querySelector('#fixedRounds'); if(fixed) fixed.addEventListener('input',e=>{state.fixedRounds=Math.max(1,Number(e.target.value)||1);persist();});
   app.querySelectorAll('[data-player-name]').forEach(inp=>inp.addEventListener('input',e=>{state.players[Number(inp.dataset.playerName)].name=e.target.value;persist();}));
+  app.querySelectorAll('[data-avatar-player]').forEach(btn=>btn.addEventListener('click',()=>{const i=Number(btn.dataset.avatarPlayer);state.avatarPickerIndex=state.avatarPickerIndex===i?null:i;persist();render();}));
+  app.querySelectorAll('[data-avatar-choice]').forEach(btn=>btn.addEventListener('click',()=>{const i=state.avatarPickerIndex;if(i===null || !state.players[i])return;state.players[i].avatar=btn.dataset.avatarChoice;state.avatarPickerIndex=null;persist();render();}));
+  app.querySelector('[data-action="close-avatar-picker"]')?.addEventListener('click',()=>{state.avatarPickerIndex=null;persist();render();});
   app.querySelectorAll('[data-remove]').forEach(btn=>btn.addEventListener('click',()=>{if(state.players.length<=2)return setToast('At least 2 players are required.'); const i=Number(btn.dataset.remove);state.players.splice(i,1);state.startingDealerIndex=Math.min(state.startingDealerIndex,state.players.length-1);persist();render();}));
   const dealer=app.querySelector('#dealerSelect'); if(dealer) dealer.addEventListener('change',e=>{state.startingDealerIndex=Number(e.target.value);persist();});
   app.querySelector('[data-action="add-player"]')?.addEventListener('click',()=>{const input=app.querySelector('#newPlayerName');const name=input.value.trim();if(!name)return setToast('Enter a player name.');if(state.players.length>=8)return setToast('Maximum 8 players.');const idx=state.players.length;state.players.push({id:uid(),name,avatar:AVATARS[idx%AVATARS.length],color:COLORS[idx%COLORS.length]});persist();render();});
-  app.querySelector('[data-action="start-game"]')?.addEventListener('click',()=>{state.gameName=(state.gameName||'').trim()||'Rummy';if(state.players.length<2)return setToast('Add at least 2 players.');if(state.players.some(p=>!p.name.trim()))return setToast('Every player needs a name.');state.dealerIndex=state.startingDealerIndex;state.rounds=[];state.currentScores={};state.completed=false;state.startedAt=new Date().toISOString();state.finishedAt=null;state.archivedGameId=null;state.editingRoundIndex=null;state.screen='score';persist();render();});
+  app.querySelector('[data-action="start-game"]')?.addEventListener('click',()=>{state.gameName=(state.gameName||'').trim()||'Rummy';if(state.players.length<2)return setToast('Add at least 2 players.');if(state.players.some(p=>!p.name.trim()))return setToast('Every player needs a name.');state.dealerIndex=state.startingDealerIndex;state.rounds=[];state.currentScores={};state.completed=false;state.startedAt=new Date().toISOString();state.finishedAt=null;state.archivedGameId=null;state.editingRoundIndex=null;state.avatarPickerIndex=null;state.screen='score';persist();render();});
 }
 function bindScore(){
   app.querySelectorAll('[data-score]').forEach(inp=>inp.addEventListener('input',e=>{const i=Number(inp.dataset.score);let v=e.target.value;if(v===''){delete state.currentScores[i];} else {v=Math.max(0,Math.min(9999,Number(v)||0));state.currentScores[i]=v;}persist();}));
@@ -393,7 +405,7 @@ function bindGame(){
   app.querySelectorAll('[data-action="undo-round"]').forEach(b=>b.addEventListener('click',undoRound));
   app.querySelectorAll('[data-action="change-dealer"]').forEach(b=>b.addEventListener('click',()=>{state.dealerIndex=(state.dealerIndex+1)%state.players.length;persist();setToast(`Dealer: ${currentDealerName()}`);}));
   app.querySelector('[data-action="end-game"]')?.addEventListener('click',()=>{if(!confirm('End the current game?'))return;state.completed=true;state.finishedAt=new Date().toISOString();archiveCurrentGame();persist();render();});
-  app.querySelector('[data-action="new-game"]')?.addEventListener('click',()=>{state.rounds=[];state.currentScores={};state.completed=false;state.dealerIndex=state.startingDealerIndex;state.startedAt=new Date().toISOString();state.finishedAt=null;state.archivedGameId=null;state.editingRoundIndex=null;state.screen='score';persist();render();});
+  app.querySelector('[data-action="new-game"]')?.addEventListener('click',()=>{state.rounds=[];state.currentScores={};state.completed=false;state.dealerIndex=state.startingDealerIndex;state.startedAt=new Date().toISOString();state.finishedAt=null;state.archivedGameId=null;state.editingRoundIndex=null;state.avatarPickerIndex=null;state.screen='score';persist();render();});
   app.querySelectorAll('[data-action="reset-game"]').forEach(b=>b.addEventListener('click',()=>{if(!confirm('Reset this game and return to setup? Completed game history will be kept.'))return;const fresh=defaultState();fresh.gameName=state.gameName;fresh.winMode=state.winMode;fresh.endMode=state.endMode;fresh.scoreLimit=state.scoreLimit;fresh.fixedRounds=state.fixedRounds;fresh.players=clone(state.players);fresh.startingDealerIndex=Math.min(state.startingDealerIndex,fresh.players.length-1);state=fresh;persist();render();}));
 }
 
